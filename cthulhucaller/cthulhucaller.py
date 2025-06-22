@@ -1,6 +1,7 @@
 import csv
 import io
 import math
+import random
 import re
 
 import aiohttp
@@ -29,13 +30,13 @@ CHARACTERISTICS = ['str', 'con', 'siz', 'dex', 'app', 'edu', 'int', 'pow']
 CHARACTERISTIC_ROW_START = 7
 CHARACTERISTIC_COL = 2
 
-SKILLS = ['accounting', 'animal handling', 'anthropology', 'appraise', 'archaeology', 'artillery',
-    'charm', 'climb', 'credit rating', 'cthulhu mythos', 'demolitions', 'disguise', 'diving',
-    'dodge', 'drive auto', 'electrical repair', 'fast talk', 'first aid', 'history', 'hypnosis',
-    'intimidate', 'jump', 'language (own)', 'law', 'library use', 'listen', 'locksmith',
-    'mechanical repair', 'medicine', 'natural world', 'navigate', 'occult',
-    'operate heavy machinery', 'persuade', 'psychoanalysis', 'psychology', 'read lips', 'ride',
-    'sleight of hand', 'spot hidden', 'stealth', 'swim', 'throw', 'track']
+SKILLS = ['Accounting', 'Animal Handling', 'Anthropology', 'Appraise', 'Archaeology', 'Artillery',
+    'Charm', 'Climb', 'Credit Rating', 'Cthulhu Mythos', 'Demolitions', 'Disguise', 'Diving',
+    'Dodge', 'Drive Auto', 'Electrical Repair', 'Fast Talk', 'First Aid', 'History', 'Hypnosis',
+    'Intimidate', 'Jump', 'Language (Own)', 'Law', 'Library Use', 'Listen', 'Locksmith',
+    'Mechanical Repair', 'Medicine', 'Natural World', 'Navigate', 'Occult',
+    'Operate Heavy Machinery', 'Persuade', 'Psychoanalysis', 'Psychology', 'Read Lips', 'Ride',
+    'Sleight of Hand', 'Spot Hidden', 'Stealth', 'Swim', 'Throw', 'Track']
 SKILL_ROW_START = 2
 SKILL_COL = 8
 
@@ -51,71 +52,87 @@ POINT_BUY_TOTAL = 460
 
 # TODO: all possible default, valid, queryable skills and min/max for validation, or something
 ALL_SKILL_MINS = {
-    'accounting': 5,
-    'animal handling': 5,
-    'anthropology': 1,
-    'appraise': 5,
-    'archaeology': 1,
-    'artillery': 1,
-    'art/craft': 5,
-    'axe': 15,
-    'bow': 15,
-    'brawl': 25,
-    'chainsaw': 10,
-    'charm': 15,
-    'climb': 20,
-    'credit rating': 0,
-    'cthulhu mythos': 0,
-    'demolitions': 1,
-    'disguise': 5,
-    'diving': 1,
-    'dodge': 7,
-    'drive auto': 20,
-    'electrical repair': 10,
-    'fast talk': 5,
-    'first aid': 30,
-    'flail': 10,
-    'flamethrower': 10,
-    'garrote': 15,
-    'handgun': 20,
-    'heavy weapons': 10,
-    'history': 5,
-    'hypnosis': 1,
-    'intimidate': 15,
-    'jump': 20,
-    'language (other)': 1,
-    'language (own)': 7,
-    'law': 5,
-    'library use': 20,
-    'listen': 20,
-    'locksmith': 1,
-    'lore': 1,
-    'machine gun': 10,
-    'mechanical repair': 10,
-    'medicine': 1,
-    'natural world': 10,
-    'navigate': 10,
-    'occult': 5,
-    'operate heavy machinery': 1,
-    'persuade': 10,
-    'pilot': 1,
-    'psychoanalysis': 1,
-    'psychology': 10,
-    'read lips': 1,
-    'ride': 5,
-    'rifle/shotgun': 25,
-    'science': 1,
-    'sleight of hand': 10,
-    'spear': 20,
-    'spot hidden': 25,
-    'stealth': 20,
-    'submachine gun': 15,
-    'survival': 10,
-    'swim': 20,
-    'sword': 20,
-    'throw': 20,
-    'track': 10,
-    'whip': 5
+    'Accounting': 5,
+    'Animal Handling': 5,
+    'Anthropology': 1,
+    'Appraise': 5,
+    'Archaeology': 1,
+    'Artillery': 1,
+    'Art and Craft': 5,
+    'Axe': 15,
+    'Bow': 15,
+    'Brawl': 25,
+    'Chainsaw': 10,
+    'Charm': 15,
+    'Climb': 20,
+    'Credit Rating': 0,
+    'Cthulhu Mythos': 0,
+    'Demolitions': 1,
+    'Disguise': 5,
+    'Diving': 1,
+    'Dodge': 7,
+    'Drive Auto': 20,
+    'Electrical Repair': 10,
+    'Fast Talk': 5,
+    'First Aid': 30,
+    'Flail': 10,
+    'Flamethrower': 10,
+    'Garrote': 15,
+    'Handgun': 20,
+    'Heavy Weapons': 10,
+    'History': 5,
+    'Hypnosis': 1,
+    'Intimidate': 15,
+    'Jump': 20,
+    'Language (Other)': 1,
+    'Language (Own)': 7,
+    'Law': 5,
+    'Library Use': 20,
+    'Listen': 20,
+    'Locksmith': 1,
+    'Lore': 1,
+    'Machine Gun': 10,
+    'Mechanical Repair': 10,
+    'Medicine': 1,
+    'Natural World': 10,
+    'Navigate': 10,
+    'Occult': 5,
+    'Operate Heavy Machinery': 1,
+    'Persuade': 10,
+    'Pilot': 1,
+    'Psychoanalysis': 1,
+    'Psychology': 10,
+    'Read Lips': 1,
+    'Ride': 5,
+    'Rifle/Shotgun': 25,
+    'Science': 1,
+    'Sleight of Hand': 10,
+    'Spear': 20,
+    'Spot Hidden': 25,
+    'Stealth': 20,
+    'Submachine Gun': 15,
+    'Survival': 10,
+    'Swim': 20,
+    'Sword': 20,
+    'Throw': 20,
+    'Track': 10,
+    'Whip': 5
+}
+
+UMBRELLA_SKILLS = ['Art and Craft', 'Language (Other)', 'Lore', 'Pilot', 'Science', 'Survival']
+
+DAMAGE_BONUS = 0
+BUILD = 1
+DAMAGE_BUILD_CHART = {
+    64: [-2, -2],
+    84: [-1, -1],
+    124: [0, 0],
+    164: ["1d4", 1],
+    204: ["1d6", 2],
+    284: ["2d6", 3],
+    364: ["3d6", 4],
+    444: ["4d6", 5],
+    524: ["5d6", 6],
 }
 
 
@@ -277,15 +294,15 @@ class CthulhuCaller(commands.Cog):
         return re.match(JUST_DIGITS, value)
 
     def _get_starting_balances(self, char_data: dict):
-        ch_pow = int(char_data['characteristics']['pow'])
         ch_con = int(char_data['characteristics']['con'])
         ch_siz = int(char_data['characteristics']['siz'])
+        ch_pow = int(char_data['characteristics']['pow'])
 
         balances = {
             'luck': int(char_data['luck']),
             'sanity': ch_pow,
-            'magic': ch_pow / 5,
-            'magic_maximum': ch_pow / 5,
+            'magic': math.floor(ch_pow / 5),
+            'magic_maximum': math.floor(ch_pow / 5),
             'health': math.floor((ch_con + ch_siz) / 10),
             'health_maximum': math.floor((ch_con + ch_siz) / 10)
         }
@@ -316,7 +333,7 @@ class CthulhuCaller(commands.Cog):
 
         lines = []
         for sheet_id in characters.keys():
-            char_data = characters[active_id]
+            char_data = characters[sheet_id]
             line = f"{char_data['name']}"
             if send_links:
                 line += f" ([link]({self.make_link_from_sheet_id(sheet_id)}))"
@@ -370,3 +387,96 @@ class CthulhuCaller(commands.Cog):
                     return sheet_id
 
         return None
+
+    @commands.command()
+    async def sheet(self, ctx):
+        """Show the active character's sheet."""
+        sheet_id = await self.config.user(ctx.author).active_char()
+        if sheet_id is None:
+            # TODO: update when more character commands come in
+            await ctx.send("No character is active. `import` a new character or switch to an " + \
+                "existing one with `character setactive` (that is not implemented yet, though).")
+            return
+
+        data = await self.config.user(ctx.author).characters()
+        char_data = data[sheet_id]
+        characteristics = char_data['characteristics']
+        skills = char_data['skills']
+
+        settings = await self.config.user(ctx.author).csettings()
+        balances = settings[sheet_id]['balances']
+
+        embed = await self._get_base_embed(ctx)
+        embed.title = f"{char_data['name']}"
+
+        desc_lines = []
+        desc_lines.append(f"{char_data['archetype']}")
+        desc_lines.append(f"**Luck**: {balances['luck']}")
+        desc_lines.append(f"**Sanity**: {balances['sanity']}")
+        desc_lines.append(f"**Health**: {balances['health']}/{balances['health_maximum']}")
+        desc_lines.append(f"**Magic**: {balances['magic']}/{balances['magic_maximum']}")
+
+        damage_bonus, build, movement = self.calculate_damage_build_mov(characteristics)
+        desc_lines.append(f"**Damage Bonus**: {damage_bonus} **Build**: {build} " + \
+            f"**Move Rate**: {movement}")
+        embed.description = "\n".join(desc_lines)
+
+        characteristic_lines = []
+        for ch in characteristics.keys():
+            characteristic_lines.append(f"**{ch.upper()}**: {characteristics[ch].zfill(2)}")
+        characteristic_field = " ".join(characteristic_lines[:4]) + "\n" + \
+            " ".join(characteristic_lines[4:])
+        embed.add_field(name="Characteristics", value=characteristic_field, inline=False)
+
+        skill_lines = []
+        for skill in skills.keys():
+            skill_lines.append(f"{skill}: {skills[skill].zfill(2)}")
+
+        default_lines = skill_lines[:len(SKILLS)]
+        custom_lines = skill_lines[len(SKILLS):]
+
+        for skill in UMBRELLA_SKILLS:
+            default_lines.append(f"{skill}: {str(ALL_SKILL_MINS[skill]).zfill(2)}")
+
+        half_count = math.floor((len(SKILLS) + len(UMBRELLA_SKILLS)) / 2)
+        skill_field_1 = "\n".join(sorted(default_lines)[:half_count])
+        skill_field_2 = "\n".join(sorted(default_lines)[half_count:])
+        custom_field = "\n".join(sorted(custom_lines))
+        embed.add_field(name="Skills", value=skill_field_1, inline=True)
+        embed.add_field(name="Skills (cont.)", value=skill_field_2, inline=True)
+        embed.add_field(name="Custom Skills", value=custom_field, inline=True)
+
+        await ctx.send(embed=embed)
+
+    async def _get_base_embed(self, ctx):
+        embed = discord.Embed()
+
+        sheet_id = await self.config.user(ctx.author).active_char()
+        settings = await self.config.user(ctx.author).csettings()
+
+        if sheet_id in settings and 'color' in settings[sheet_id] and settings[sheet_id]['color']:
+            embed.colour = discord.Colour(settigns[sheet_id]['color'])
+        else:
+            embed.colour = discord.Colour(random.randint(0x000000, 0xFFFFFF))
+
+        if sheet_id in settings and 'image_url' in settings[sheet_id] and \
+            settings[sheet_id]['image_url']:
+            embed.set_thumbnail(url=settings[sheet_id]['image_url'])
+
+        return embed
+
+    def calculate_damage_build_mov(self, characteristics: dict):
+        ch_str = int(characteristics['str'])
+        ch_dex = int(characteristics['dex'])
+        ch_siz = int(characteristics['siz'])
+
+        for upper_thresh in DAMAGE_BUILD_CHART.keys():
+            if ch_str + ch_siz <= upper_thresh:
+                damage_bonus = DAMAGE_BUILD_CHART[upper_thresh][DAMAGE_BONUS]
+                build = DAMAGE_BUILD_CHART[upper_thresh][BUILD]
+                break
+
+        movement = 7 if ch_str < ch_siz and ch_dex < ch_siz else \
+            9 if ch_str > ch_siz and ch_dex > ch_siz else 8
+
+        return damage_bonus, build, movement
