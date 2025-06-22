@@ -349,6 +349,24 @@ class CthulhuCaller(commands.Cog):
     def make_link_from_sheet_id(self, sheet_id: str):
         return GSHEET_URL_BASE.format(sheet_id)
 
+    @character.command(name="setactive", aliases=["set", "switch"])
+    async def character_set(self, ctx, *, query: str):
+        """Set the active character.
+
+        Takes a link to a published Google Sheet or a character name as argument.
+        """
+        characters = await self.config.user(ctx.author).characters()
+
+        character_id = await self.sheet_id_from_query(ctx, query)
+
+        if not character_id:
+            await ctx.send(f"Could not find a character to match `{query}`.")
+            return
+
+        await self.config.user(ctx.author).active_char.set(character_id)
+        char_data = characters[character_id]
+        await ctx.send(f"{char_data['name']} made active.")
+
     @character.command(name="remove", aliases=["delete"])
     async def character_remove(self, ctx, *, query: str):
         """Remove a character from the list.
@@ -393,9 +411,8 @@ class CthulhuCaller(commands.Cog):
         """Show the active character's sheet."""
         sheet_id = await self.config.user(ctx.author).active_char()
         if sheet_id is None:
-            # TODO: update when more character commands come in
             await ctx.send("No character is active. `import` a new character or switch to an " + \
-                "existing one with `character setactive` (that is not implemented yet, though).")
+                "existing one with `character setactive`.")
             return
 
         data = await self.config.user(ctx.author).characters()
