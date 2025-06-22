@@ -367,6 +367,73 @@ class CthulhuCaller(commands.Cog):
         char_data = characters[character_id]
         await ctx.send(f"{char_data['name']} made active.")
 
+    @character.command(name="setcolor")
+    async def character_color(self, ctx, *, color: str):
+        """Set the active character's embed color.
+
+        Takes either a hex code or "random". Examples:
+        `[p]character setcolor #FF8822`
+        `[p]character setcolor random`
+        """
+        sheet_id = await self.config.user(ctx.author).active_char()
+        if sheet_id is None:
+            await ctx.send("No character is active. `import` a new character or switch to an " + \
+                "existing one with `character setactive`.")
+            return
+
+        data = await self.config.user(ctx.author).characters()
+        name = data[sheet_id]['name']
+
+        if re.match(r"^#?[0-9a-fA-F]{6}$", color) or color.lower() == "random":
+            async with self.config.user(ctx.author).csettings() as csettings:
+                if color.lower() == "random":
+                    csettings[sheet_id]['color'] = None
+                else:
+                    csettings[sheet_id]['color'] = int(color.lstrip("#"), 16)
+            embed = await self._get_base_embed(ctx)
+            embed.description = f"Embed color has been set for {name}."
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send(f"Could not interpret `{color}` as a color.")
+
+    @character.command(name="setimage")
+    async def character_image(self, ctx, *, image: str=""):
+        """Set the active character's image.
+
+        Takes either an attached image, an image link, or "none" (to delete).
+        """
+        sheet_id = await self.config.user(ctx.author).active_char()
+        if sheet_id is None:
+            await ctx.send("No character is active. `import` a new character or switch to an " + \
+                "existing one with `character setactive`.")
+            return
+
+        data = await self.config.user(ctx.author).characters()
+        name = data[sheet_id]['name']
+
+        if len(ctx.message.attachments):
+            if not ctx.message.attachments[0].content_type.startswith("image"):
+                await ctx.send("Could not interpret the attachment as an image.")
+                return
+            else:
+                url = ctx.message.attachments[0].url
+        else:
+            if not image:
+                await ctx.send("Could not interpret image link.")
+                return
+            elif image == "none":
+                url = None
+            else:
+                url = image
+
+        async with self.config.user(ctx.author).csettings() as csettings:
+            csettings[sheet_id]['image_url'] = url
+
+        embed = await self._get_base_embed(ctx)
+        embed.description = f"Image has been set for {name}."
+
+        await ctx.send(embed=embed)
+
     @character.command(name="remove", aliases=["delete"])
     async def character_remove(self, ctx, *, query: str):
         """Remove a character from the list.
@@ -472,7 +539,7 @@ class CthulhuCaller(commands.Cog):
         settings = await self.config.user(ctx.author).csettings()
 
         if sheet_id in settings and 'color' in settings[sheet_id] and settings[sheet_id]['color']:
-            embed.colour = discord.Colour(settigns[sheet_id]['color'])
+            embed.colour = discord.Colour(settings[sheet_id]['color'])
         else:
             embed.colour = discord.Colour(random.randint(0x000000, 0xFFFFFF))
 
