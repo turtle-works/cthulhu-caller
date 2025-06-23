@@ -191,6 +191,11 @@ class CthulhuCaller(commands.Cog):
                 reader = csv.reader(io.StringIO(await response.text()), delimiter=',')
 
         raw_data = list(reader)
+        if not self._is_char_csv_data(raw_data):
+            await ctx.send("Couldn't find character data at this link. Is the sheet still " + \
+                "being published to web?")
+            return
+
         char_data = self.read_char_data(raw_data)
 
         if not self._is_char_data_valid(char_data):
@@ -217,6 +222,10 @@ class CthulhuCaller(commands.Cog):
         end_index = url.find('/pub')
 
         return url[start_index:end_index]
+
+    def _is_char_csv_data(self, raw_data: list):
+        # TODO: think of other validations
+        return len(raw_data) == 46 and "!DOCTYPE html" not in raw_data[0]
 
     def read_char_data(self, raw_data: list):
         char_data = {}
