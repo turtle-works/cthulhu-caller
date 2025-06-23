@@ -903,3 +903,112 @@ class CthulhuCaller(commands.Cog):
             9 if ch_str > ch_siz and ch_dex > ch_siz else 8
 
         return damage_bonus, build, movement
+
+    @commands.group(aliases=["g"])
+    async def game(self, ctx):
+        """Commands for gameplay management."""
+
+    @game.command()
+    async def luck(self, ctx, *, amount: str=""):
+        """Update the active character's luck.
+        
+        Takes an (integer or dice) amount to change by, "set #", or "max". Examples:
+        `[p]game luck -8`
+        `[p]game luck set 25`
+        `[p]game luck max`
+        """
+        await self.modify_balance(ctx, amount, "luck")
+
+    @game.command(aliases=["san"])
+    async def sanity(self, ctx, *, amount: str=""):
+        """Update the active character's sanity.
+        
+        Takes an (integer or dice) amount to change by, "set #", or "max". Examples:
+        `[p]game sanity -1d6`
+        `[p]game sanity set 55`
+        `[p]game sanity max`
+        """
+        await self.modify_balance(ctx, amount, "sanity")
+
+    @game.command(aliases=["hp"])
+    async def health(self, ctx, *, amount: str=""):
+        """Update the active character's health.
+        
+        Takes an (integer or dice) amount to change by, "set #", or "max". Examples:
+        `[p]game health +3`
+        `[p]game health set 8`
+        `[p]game health max`
+        """
+        await self.modify_balance(ctx, amount, "health")
+
+    @game.command()
+    async def magic(self, ctx, *, amount: str=""):
+        """Update the active character's magic points.
+        
+        Takes an (integer or dice) amount to change by, "set #", or "max". Examples:
+        `[p]game magic +1d4`
+        `[p]game magic set 10`
+        `[p]game magic max`
+        """
+        await self.modify_balance(ctx, amount, "magic")
+
+    async def modify_balance(self, ctx, amount: str, value_type: str):
+        sheet_id = await self.config.user(ctx.author).active_char()
+        if sheet_id is None:
+            await ctx.send("No character is active. `import` a new character or switch to an " + \
+                "existing one with `character setactive`.")
+            return
+
+        data = await self.config.user(ctx.author).characters()
+        char_data = data[sheet_id]
+
+        async with self.config.user(ctx.author).csettings() as settings:
+            balances = settings[sheet_id]['balances']
+            curr_value = balances[value_type]
+
+            if value_type == "luck":
+                max_value = 99
+            elif value_type == "sanity":
+                max_value = 99 - int(char_data['skills']['Cthulhu Mythos'])
+            elif value_type == "health":
+                max_value = balances['health_maximum']
+            elif value_type == "magic":
+                max_value = balances['magic_maximum']
+
+            if amount == "max":
+                new_value = max_value
+            elif amount.startswith("set ") and len(amount) > 4:
+                try:
+                    new_value = min(max_value, max(0, d20.roll(amount[4:]).total))
+                except:
+                    await ctx.send("Could not interpret that amount as an integer or dice roll.")
+                    return
+            elif amount:
+                try:
+                    delta = d20.roll(amount).total
+                    if delta < 0:
+                        new_value = max(0, curr_value + delta)
+                    else:
+                        new_value = min(max_value, curr_value + delta)
+                except:
+                    await ctx.send("Could not interpret that amount as an integer or dice roll.")
+                    return
+            else:
+                # no amount was given, just display
+                output = f"{value_type.capitalize()}: {curr_value}"
+                if value_type == "health" or value_type == "magic":
+                    output += f"/{balances[f'{value_type}_maximum']}"
+                await ctx.send(output)
+                return
+
+            balances[value_type] = new_value
+
+            value_diff = new_value - curr_value
+            op = "" if value_diff < 0 else "+"
+
+            output = f"{value_type.capitalize()}: {new_value}"
+            if value_type == "health" or value_type == "magic":
+                output += f"/{balances[f'{value_type}_maximum']}"
+            output += f" ({op}{value_diff})"
+
+            await ctx.send(output)
