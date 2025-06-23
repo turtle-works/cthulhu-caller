@@ -199,7 +199,7 @@ class CthulhuCaller(commands.Cog):
         char_data = self.read_char_data(raw_data)
 
         if not self._is_char_data_valid(char_data):
-            # TODO: update message as more things are validated
+            # TODO: update message as more things are validated (here and in update)
             # TODO: add better feedback as to what exactly is incorrect
             await ctx.send("Something was wrong with this sheet. Please check that every cell " + \
                 "is in the right place and filled in correctly. Aborting import.")
@@ -216,6 +216,88 @@ class CthulhuCaller(commands.Cog):
             csettings[sheet_id]['balances'] = balances
 
         await ctx.send(f"Successfully imported data for {char_data['name']}.")
+
+    @commands.command()
+    async def update(self, ctx, url: str=""):
+        """Update character data.
+        
+        Optionally takes a link to a published Google Sheet as argument.
+        """
+        active_sheet_id = await self.config.user(ctx.author).active_char()
+        if not url:
+            sheet_id = active_sheet_id
+            if sheet_id is None:
+                await ctx.send("Tried to update active character but no character is active.")
+                return
+
+            char_url = self.make_link_from_sheet_id(sheet_id)
+        else:
+            if not re.match(GSHEET_URL_TEMPLATE, url):
+                await ctx.send("Couldn't parse that as a link to a published-to-web Google Sheet.")
+                return
+            sheet_id = self._get_sheet_identifier_from_url(url)
+            char_url = url
+
+            characters = await self.config.user(ctx.author).characters()
+            if sheet_id not in characters.keys():
+                await ctx.send("This character was not recognized, `import` them instead.")
+                return
+            else:
+                if sheet_id != active_sheet_id:
+                    await ctx.send("Making this character active and updating.")
+                await self.config.user(ctx.author).active_char.set(sheet_id)
+
+        await self.bot.wait_until_ready()
+        async with aiohttp.ClientSession() as session:
+            async with session.get(char_url) as response:
+                reader = csv.reader(io.StringIO(await response.text()), delimiter=',')
+
+        raw_data = list(reader)
+        if not self._is_char_csv_data(raw_data):
+            await ctx.send("Couldn't find character data at this link. Is the sheet still " + \
+                "being published to web?")
+            return
+
+        char_data = self.read_char_data(raw_data)
+
+        if not self._is_char_data_valid(char_data):
+            await ctx.send("Something was wrong with this sheet. Please check that every cell " + \
+                "is in the right place and filled in correctly. Aborting update.")
+            return
+
+        async with self.config.user(ctx.author).characters() as characters:
+            characters[sheet_id] = char_data
+
+        await self.config.user(ctx.author).active_char.set(sheet_id)
+
+        # balances should stay the same unless max values were changed by this update
+        # patch_notes = []
+        balance_updates = []
+        async with self.config.user(ctx.author).csettings() as settings:
+            balances = settings[sheet_id]['balances']
+            new_balances = self._get_starting_balances(char_data)
+
+            balances['magic_maximum'] = new_balances['magic_maximum']
+            balances['health_maximum'] = new_balances['health_maximum']
+
+            if new_balances['magic_maximum'] < balances['magic']:
+                balance_updates.append(f"Magic was {balances['magic']} and has been reduced " + \
+                    f"to the new maximum of {new_balances['magic_maximum']}.")
+                balances['magic'] = new_balances['magic_maximum']
+
+            if new_balances['health_maximum'] < balances['health']:
+                balance_updates.append(f"Health was {balances['health']} and has been reduced " + \
+                    f"to the new maximum of {new_balances['health_maximum']}.")
+
+            new_sanity_max = 99 - int(char_data['skills']['Cthulhu Mythos'])
+            if balances['sanity'] > new_sanity_max:
+                balance_updates.append(f"Sanity was {balances['sanity']} and has been reduced " + \
+                    f"to the new maximum of {new_sanity_max}.")
+                balances['sanity'] = new_sanity_max
+
+        balance_update_text = f"\n{' '.join(balance_updates)}" if len(balance_updates) else ""
+
+        await ctx.send(f"Updated data for {char_data['name']}.{balance_update_text}")
 
     def _get_sheet_identifier_from_url(self, url: str):
         start_index = url.find('/d/e/') + 5
