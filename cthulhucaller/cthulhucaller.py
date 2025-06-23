@@ -6,6 +6,7 @@ import re
 
 import aiohttp
 import discord
+import d20
 
 from redbot.core import Config, commands
 
@@ -14,7 +15,9 @@ GSHEET_URL_TEMPLATE = r"^https://docs.google.com/spreadsheets/d/e/[0-9A-Za-z-_]+
     r"&single=true&output=csv$"
 GSHEET_URL_BASE = "https://docs.google.com/spreadsheets/d/e/{}/pub?gid=0&single=true&output=csv"
 
-# huge pile of data-locating constants
+KNOWN_FLAGS = ["bonus", "penalty", "phrase", "rr"]
+DOUBLE_QUOTES = ["\"", "“", "”"]
+
 # TODO: reorganize later. also maybe there's a better way?
 DATA_LOCATIONS = {
     'name': (2, 1),
@@ -472,6 +475,253 @@ class CthulhuCaller(commands.Cog):
                     return sheet_id
 
         return None
+
+    @commands.command(aliases=["c", "roll", "r"])
+    async def check(self, ctx, *, query):
+        """Make a d100 roll.
+        
+        Takes a plain DC as argument, or a check name (to make the roll as the active character).
+        """
+        processed_query = self.process_query(query)
+
+        dc = None
+        skill = None
+        data = await self.config.user(ctx.author).characters()
+
+        if processed_query['query'].isnumeric():
+            dc = int(processed_query['query'])
+            char_data = None
+        else:
+            sheet_id = await self.config.user(ctx.author).active_char()
+            if sheet_id is None:
+                await ctx.send("No character is active. `import` a new character or switch to an " + \
+                    "existing one with `character setactive`.")
+                return
+
+            char_data = data[sheet_id]
+            csettings = await self.config.user(ctx.author).csettings()
+            balances = csettings[sheet_id]['balances']
+
+            check_name = processed_query['query'].lower()
+            dc, skill = self.find_skill(check_name, char_data, balances)
+
+        if dc is None:
+            await ctx.send(f"Could not understand `{check_name}`.")
+            return
+
+        bonus_str = self._get_rollable_arg(processed_query['bonus'])
+        penalty_str = self._get_rollable_arg(processed_query['penalty'])
+        phrase_str = "\n".join(processed_query['phrase'])
+        repetition_str = self._get_single_rollable_arg(processed_query['rr'])
+
+        dc_str = f"({dc}/{math.floor(dc / 2)}/{math.floor(dc / 5)})"
+
+        if skill is not None:
+            name = char_data['name']
+            article = "an" if skill.lower()[0] in ["a", "e", "i", "o", "u"] else "a"
+            title_text = f"{name} makes {article} {skill} {dc_str} roll!"
+        else:
+            title_text = f"DC {dc_str} roll!"
+
+        embed = await self._get_base_embed(ctx)
+        embed.title = title_text
+
+        if not repetition_str or d20.roll(repetition_str).total == 1:
+            roll_text, degree_text, luck_text = self.perform_skill_roll(dc, bonus_str, penalty_str)
+            description = f"{degree_text}\n{roll_text}"
+
+            if phrase_str:
+                embed.description = f"{description}\n*> {phrase_str}*"
+            else:
+                embed.description = description
+            embed.set_footer(text=luck_text)
+        else:
+            if phrase_str:
+                embed.description = f"> *{phrase_str}*"
+
+            for i in range(d20.roll(repetition_str).total):
+                roll_text, degree_text, luck_text = \
+                    self.perform_skill_roll(dc, bonus_str, penalty_str)
+                field_name = f"Roll {i + 1}"
+                embed.add_field(name=field_name, value=f"{degree_text}{luck_text}\n{roll_text}")
+
+        await ctx.send(embed=embed)
+
+    def process_query(self, query_str: str):
+        processed_flags = self._get_base_flags()
+
+        # prepend a space so the flag finding will succeed even with no query. hey, if it works...
+        # also append a space so argless flags at the end won't poison the previous flag's arg
+        query_str = " " + query_str + " "
+
+        flag_locs = []
+        search_start = 0
+        while search_start < len(query_str):
+            # looks for instances of all the flags simultaneously
+            next_flags = [query_str.find(f" -{flag} ", search_start) for flag in KNOWN_FLAGS]
+
+            # no more flags, end loop
+            if all([f < 0 for f in next_flags]):
+                break
+            # save location of earliest flag
+            else:
+                while -1 in next_flags:
+                    next_flags.remove(-1)
+                next_flag = min(next_flags)
+                flag_locs.append(next_flag)
+                search_start = next_flag + 2
+        flag_locs.sort()
+
+        if not flag_locs:
+            processed_flags['query'] = query_str.strip()
+        else:
+            processed_flags['query'] = query_str[:flag_locs[0]].strip()
+
+        for i in range(len(flag_locs)):
+            if i == len(flag_locs) - 1:
+                flag_and_arg = query_str[flag_locs[i]:]
+            else:
+                flag_and_arg = query_str[flag_locs[i]:flag_locs[i + 1]]
+
+            flag_and_arg = flag_and_arg.strip()[1:]
+            # split only on the first space, if it exists
+            flag_and_arg = flag_and_arg.split(" ", 1)
+
+            flag = flag_and_arg[0]
+            if len(flag_and_arg) > 1:
+                arg = flag_and_arg[1]
+                # TODO: maybe give this another try later. for now, flags (with -) only
+                # arg_str = flag_and_arg[1]
+
+                # # if this begins with a double quote, the arg ends at the final double quote
+                # if len(arg_str) > 1 and arg_str.strip()[0] in DOUBLE_QUOTES:
+                #     end = max([arg_str.rfind(q) for q in DOUBLE_QUOTES])
+                # # if not, the arg ends after one word
+                # else:
+                #     end = arg_str.find(" ") if " " in arg_str else len(arg_str)
+                # arg = arg_str[:end]
+
+                # # search what remains for additional bonus/penalty indicators
+                # search_str = arg_str[end:].lower()
+                # if "bonus" in search_str or "adv" in search_str:
+                #     processed_flags['bonus'].append("1")
+                # if "penalty" in search_str or "dis" in search_str:
+                #     processed_flags['penalty'].append("1")
+            else:
+                arg = ""
+
+            arg = arg.strip()
+            if len(arg) > 1 and arg[0] in DOUBLE_QUOTES and arg[-1] in DOUBLE_QUOTES:
+                arg = arg[1:-1]
+
+            processed_flags[flag].append(arg)
+
+        return processed_flags
+
+    def _get_base_flags(self):
+        processed_flags = {'query': ""}
+        for flag in KNOWN_FLAGS:
+            processed_flags[flag] = []
+        return processed_flags
+
+    def find_skill(self, check_name: str, char_data: dict, balances: dict):
+        for ch in char_data['characteristics'].keys():
+            if check_name in ch.lower():
+                return int(char_data['characteristics'][ch]), ch.upper()
+
+        for sk in char_data['skills'].keys():
+            if check_name in sk.lower():
+                return int(char_data['skills'][sk]), sk
+
+        if check_name == "know":
+            return int(char_data['characteristics']['edu']), "Know"
+
+        if check_name == "idea":
+            return int(char_data['characteristics']['int']), "Idea"
+
+        if check_name == "luck":
+            return int(balances['luck']), "Luck"
+
+        for sk in UMBRELLA_SKILLS:
+            if check_name in sk.lower():
+                return ALL_SKILL_MINS[sk], sk
+
+        return None, None
+
+    # for a flag that should only have been used once
+    def _get_single_rollable_arg(self, args: list):
+        try:
+            d20.roll(args[0])
+            return args[0]
+        # should catch both empty list and not rollable
+        except:
+            return ""
+
+    def _get_rollable_arg(self, args: list):
+        rollable_args = []
+        for arg in args:
+            # perhaps hacky but it works
+            try:
+                d20.roll(arg)
+                rollable_args.append(arg)
+            except:
+                # this was invalid and not rollable, don't use it
+                pass
+        return " + ".join(rollable_args)
+
+    def perform_skill_roll(self, dc: int, bonus_str: str, penalty_str: str):
+        # tens is 0-indexed: 00 through 90
+        # ones is 1-indexed: 01 through 10
+        tens = d20.roll(self.make_tens_string(bonus_str, penalty_str))
+        ones = d20.roll("1d10")
+        roll_total = (tens.total * 10) + ones.total
+        roll_text = f"{str(tens)}, {str(ones)} -> `{roll_total}`"
+
+        to_success, to_hard, to_extreme, degree_of_success = \
+            self._get_degree_of_success(dc, roll_total)
+
+        luck_strs = []
+        if to_success is not None:
+            luck_strs.append(f"{to_success} Luck to Regular")
+        if to_hard is not None:
+            luck_strs.append(f"{to_hard} Luck to Hard")
+        if to_extreme is not None:
+            luck_strs.append(f"{to_extreme} Luck to Extreme")
+
+        luck_str = ", ".join(luck_strs)
+        luck_text = " (" + luck_str + ")" if luck_str else ""
+        degree_text = f"**{degree_of_success}**"
+
+        return roll_text, degree_text, luck_text
+
+    def make_tens_string(self, bonus_str: str, penalty_str: str):
+        bonus = d20.roll(bonus_str).total if bonus_str else 0
+        penalty = d20.roll(penalty_str).total if penalty_str else 0
+        net_change = bonus - penalty
+
+        if net_change == 0:
+            return "1d10 - 1"
+        elif net_change > 0:
+            return f"{abs(net_change) + 1}d10kl1 - 1"
+        else:
+            return f"{abs(net_change) + 1}d10kh1 - 1"
+
+    def _get_degree_of_success(self, dc: int, roll_total: int):
+        extreme_dc = math.floor(dc / 5)
+        hard_dc = math.floor(dc / 2)
+
+        if roll_total == 1:
+            return None, None, None, "Critical Success"
+        elif roll_total <= extreme_dc:
+            return None, None, None, "Extreme Success"
+        elif roll_total <= hard_dc:
+            return None, None, roll_total - extreme_dc, "Hard Success"
+        elif roll_total <= dc:
+            return None, roll_total - hard_dc, roll_total - extreme_dc, "Regular Success"
+        elif (dc < 50 and roll_total >= 96) or (dc >= 50 and roll_total >= 99):
+            return None, None, None, "Fumble"
+        else:
+            return roll_total - dc, roll_total - hard_dc, roll_total - extreme_dc, "Failure"
 
     @commands.command()
     async def sheet(self, ctx):
