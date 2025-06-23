@@ -10,7 +10,6 @@ import d20
 
 from redbot.core import Config, commands
 
-JUST_DIGITS = r"^\d+$"
 GSHEET_URL_TEMPLATE = r"^https://docs.google.com/spreadsheets/d/e/[0-9A-Za-z-_]+/pub\?gid=0" + \
     r"&single=true&output=csv$"
 GSHEET_URL_BASE = "https://docs.google.com/spreadsheets/d/e/{}/pub?gid=0&single=true&output=csv"
@@ -275,7 +274,7 @@ class CthulhuCaller(commands.Cog):
 
         # skill values should all be integers
         for skill in char_data['skills'].keys():
-            if not self._is_integer(char_data['skills'][skill]):
+            if not char_data['skills'][skill].isnumeric():
                 return False
 
         # TODO: add data validation such as min/max
@@ -291,11 +290,8 @@ class CthulhuCaller(commands.Cog):
             int(luck) == POINT_BUY_TOTAL
 
     def _is_characteristic_valid(self, characteristic: str):
-        return self._is_integer(characteristic) and int(characteristic) % 5 == 0
+        return characteristic.isnumeric() and int(characteristic) % 5 == 0
     
-    def _is_integer(self, value: str):
-        return re.match(JUST_DIGITS, value)
-
     def _get_starting_balances(self, char_data: dict):
         ch_con = int(char_data['characteristics']['con'])
         ch_siz = int(char_data['characteristics']['siz'])
@@ -499,8 +495,8 @@ class CthulhuCaller(commands.Cog):
                 return
 
             char_data = data[sheet_id]
-            csettings = await self.config.user(ctx.author).csettings()
-            balances = csettings[sheet_id]['balances']
+            settings = await self.config.user(ctx.author).csettings()
+            balances = settings[sheet_id]['balances']
 
             check_name = processed_query['query'].lower()
             dc, skill = self.find_skill(check_name, char_data, balances)
