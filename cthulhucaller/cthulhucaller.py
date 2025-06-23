@@ -745,6 +745,8 @@ class CthulhuCaller(commands.Cog):
         desc_lines.append(f"**Sanity**: {balances['sanity']}")
         desc_lines.append(f"**Health**: {balances['health']}/{balances['health_maximum']}")
         desc_lines.append(f"**Magic**: {balances['magic']}/{balances['magic_maximum']}")
+        if "Psychic Power" in char_data['talents'] and char_data['psychic_power']:
+            desc_lines.append(f"**Psychic Power**: {char_data['psychic_power']}")
 
         damage_bonus, build, movement = self.calculate_damage_build_mov(characteristics)
         desc_lines.append(f"**Damage Bonus**: {damage_bonus} **Build**: {build} " + \
