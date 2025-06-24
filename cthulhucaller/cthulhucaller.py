@@ -582,6 +582,31 @@ class CthulhuCaller(commands.Cog):
 
         return None
 
+    @commands.command(aliases=["luckshow", "showluck"])
+    async def luckdisplay(self, ctx, setting: str=""):
+        """Toggle if luck spending will be shown in the check footer."""
+        if setting and setting.lower() not in ["off", "on"]:
+            await ctx.send("Setting should be \"off\" or \"on\" (or left out, to just toggle).")
+            return
+
+        async with self.config.user(ctx.author).preferences() as preferences:
+            if 'luck_display' not in preferences:
+                preferences['luck_display'] = True
+            current_setting = preferences['luck_display']
+
+            if setting.lower() == "off":
+                new_setting = False
+            elif setting.lower() == "on":
+                new_setting = True
+            else:
+                new_setting = not current_setting
+
+            preferences['luck_display'] = new_setting
+
+        label = "on" if new_setting else "off"
+
+        await ctx.send(f"Turned luck display **{label}** for all characters.")
+
     @commands.command(aliases=["c", "roll", "r"])
     async def check(self, ctx, *, query):
         """Make a d100 roll.
@@ -593,6 +618,7 @@ class CthulhuCaller(commands.Cog):
         dc = None
         skill = None
         data = await self.config.user(ctx.author).characters()
+        preferences = await self.config.user(ctx.author).preferences()
 
         if processed_query['query'].isnumeric():
             dc = int(processed_query['query'])
@@ -644,7 +670,10 @@ class CthulhuCaller(commands.Cog):
                 embed.description = f"{description}\n*> {phrase_str}*"
             else:
                 embed.description = description
-            embed.set_footer(text=luck_text)
+
+            # show by default until toggled
+            if not ('luck_display' in preferences and not preferences['luck_display']):
+                embed.set_footer(text=luck_text)
         else:
             if phrase_str:
                 embed.description = f"> *{phrase_str}*"
@@ -652,6 +681,8 @@ class CthulhuCaller(commands.Cog):
             for i in range(d20.roll(repetition_str).total):
                 roll_text, degree_text, luck_text = \
                     self.perform_skill_roll(dc, bonus_str, penalty_str)
+                luck_text = luck_text if preferences['luck_display'] else ""
+
                 field_name = f"Roll {i + 1}"
                 embed.add_field(name=field_name, value=f"{degree_text}{luck_text}\n{roll_text}")
 
