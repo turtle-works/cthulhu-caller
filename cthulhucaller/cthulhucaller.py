@@ -817,6 +817,7 @@ class CthulhuCaller(commands.Cog):
 
         to_success, to_hard, to_extreme, degree_of_success = \
             self._get_degree_of_success(dc, roll_total)
+        degree_text = f"{degree_of_success}"
 
         luck_strs = []
         if to_success is not None:
@@ -825,10 +826,8 @@ class CthulhuCaller(commands.Cog):
             luck_strs.append(f"{to_hard} Luck to Hard")
         if to_extreme is not None:
             luck_strs.append(f"{to_extreme} Luck to Extreme")
-
         luck_str = ", ".join(luck_strs)
         luck_text = " (" + luck_str + ")" if luck_str else ""
-        degree_text = f"**{degree_of_success}**"
 
         return roll_text, degree_text, luck_text
 
@@ -843,17 +842,19 @@ class CthulhuCaller(commands.Cog):
         hard_dc = math.floor(dc / 2)
 
         if roll_total == 1:
-            return None, None, None, "Critical Success"
+            return None, None, None, "**Critical Success**"
         elif roll_total <= extreme_dc:
-            return None, None, None, "Extreme Success"
+            return None, None, None, "**Extreme Success**"
         elif roll_total <= hard_dc:
-            return None, None, roll_total - extreme_dc, "Hard Success"
+            return None, None, roll_total - extreme_dc, "**Hard Success**"
         elif roll_total <= dc:
-            return None, roll_total - hard_dc, roll_total - extreme_dc, "Regular Success"
-        elif (dc < 50 and roll_total >= 96) or (dc >= 50 and roll_total >= 99):
-            return None, None, None, "Fumble"
+            return None, roll_total - hard_dc, roll_total - extreme_dc, "**Regular Success**"
+        elif roll_total > 99:
+            return None, None, None, "**Fumble**"
+        elif roll_total >= 96:
+            return None, None, None, "**Fumble** (if success requires a result below 50)"
         else:
-            return roll_total - dc, roll_total - hard_dc, roll_total - extreme_dc, "Failure"
+            return roll_total - dc, roll_total - hard_dc, roll_total - extreme_dc, "**Failure**"
 
     @commands.command()
     async def sheet(self, ctx):
