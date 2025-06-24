@@ -198,11 +198,11 @@ class CthulhuCaller(commands.Cog):
 
         char_data = self.read_char_data(raw_data)
 
-        if not self._is_char_data_valid(char_data):
-            # TODO: update message as more things are validated (here and in update)
-            # TODO: add better feedback as to what exactly is incorrect
-            await ctx.send("Something was wrong with this sheet. Please check that every cell " + \
-                "is in the right place and filled in correctly. Aborting import.")
+        is_valid, errors = self._is_char_data_valid(char_data)
+        if not is_valid:
+            await ctx.send(f"Something was wrong with this sheet: {'; '.join(errors)}.\n" + \
+                "Please check that every cell is in the right place and filled in correctly. " + \
+                "Aborting import.")
             return
 
         async with self.config.user(ctx.author).characters() as characters:
@@ -260,9 +260,11 @@ class CthulhuCaller(commands.Cog):
 
         char_data = self.read_char_data(raw_data)
 
-        if not self._is_char_data_valid(char_data):
-            await ctx.send("Something was wrong with this sheet. Please check that every cell " + \
-                "is in the right place and filled in correctly. Aborting update.")
+        is_valid, errors = self._is_char_data_valid(char_data)
+        if not is_valid:
+            await ctx.send(f"Something was wrong with this sheet: {'; '.join(errors)}.\n" + \
+                "Please check that every cell is in the right place and filled in correctly. " + \
+                "Aborting import.")
             return
 
         async with self.config.user(ctx.author).characters() as characters:
@@ -354,22 +356,39 @@ class CthulhuCaller(commands.Cog):
         return char_data
 
     def _is_char_data_valid(self, char_data: dict):
+        errors = set()
         # characteristics should all be integers, multiples of 5, totalling to 460
         if not self._are_characteristics_valid(char_data['characteristics'], char_data['luck']):
-            return False
+            errors.add("characteristics should all be multiples of 5 and total to 460")
+
+        # name, archetype, occupation stat should be populated
+        if not char_data['name'] or not char_data['archetype'] or \
+            not char_data['occupation_skill']:
+            errors.add("all cells should be filled out")
 
         # talents are distinct and both present
         if not char_data['talents'][0] or not char_data['talents'][1] or \
             char_data['talents'][0] == char_data['talents'][1]:
-            return False
+            errors.add("talents should both be selected and different from one another")
+
+        if "Psychic Power" in char_data['talents'] and not char_data['psychic_power']:
+            errors.add("psychic power should be selected if the talent is chosen")
 
         # skill values should all be integers
         for skill in char_data['skills'].keys():
             if not char_data['skills'][skill].isnumeric():
-                return False
+                errors.add("skills should all be integers")
+            elif skill in ALL_SKILL_MINS:
+                if not ALL_SKILL_MINS[skill] <= int(char_data['skills'][skill]) <= 99:
+                    errors.add("skills should be between minimum value and 99")
+            else:
+                if not int(char_data['skills'][skill]) <= 99:
+                    errors.add("skills should not exceed 99")
 
-        # TODO: add data validation such as min/max
-        return True
+        if len(errors) > 0:
+            return False, errors
+        else:
+            return True, None
 
     def _are_characteristics_valid(self, characteristics: dict, luck: str):
         if not all([self._is_characteristic_valid(characteristics[ch]) for ch in CHARACTERISTICS]):
