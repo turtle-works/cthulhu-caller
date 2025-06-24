@@ -615,6 +615,9 @@ class CthulhuCaller(commands.Cog):
             await ctx.send(f"Could not understand `{check_name}`.")
             return
 
+        talent_bonus = self._get_talent_bonus(char_data['talents'], skill)
+        if talent_bonus:
+            processed_query['bonus'].append("1")
         bonus_str = self._get_rollable_arg(processed_query['bonus'])
         penalty_str = self._get_rollable_arg(processed_query['penalty'])
         phrase_str = "\n".join(processed_query['phrase'])
@@ -748,6 +751,9 @@ class CthulhuCaller(commands.Cog):
         if check_name == "luck":
             return int(balances['luck']), "Luck"
 
+        if check_name in "spellcasting":
+            return int(char_data['characteristics']['pow']), "Spellcasting"
+
         for sk in UMBRELLA_SKILLS:
             if check_name in sk.lower():
                 return ALL_SKILL_MINS[sk], sk
@@ -774,6 +780,22 @@ class CthulhuCaller(commands.Cog):
                 # this was invalid and not rollable, don't use it
                 pass
         return " + ".join(rollable_args)
+
+    def _get_talent_bonus(self, talents: list, skill: str):
+        if "Animal Companion" in talents and skill == "Animal Handling" or \
+            "Arcane Insight" in talents and skill == "Spellcasting" or \
+            "Endurance" in talents and skill == "CON" or \
+            "Keen Hearing" in talents and skill == "Listen" or \
+            "Keen Vision" in talents and skill == "Spot Hidden" or \
+            "Linguist" in talents and "Language" in skill or \
+            "Photographic Memory" in talents and skill == "Know" or \
+            "Power Lifter" in talents and skill == "STR" or \
+            "Sharp Witted" in talents and skill == "INT" or \
+            "Smooth Talker" in talents and skill == "Charm" or \
+            "Strong Willed" in talents and skill == "POW":
+            return 1
+        else:
+            return 0
 
     def perform_skill_roll(self, dc: int, bonus_str: str, penalty_str: str):
         bonus = d20.roll(bonus_str).total if bonus_str else 0
