@@ -859,6 +859,7 @@ class CthulhuCaller(commands.Cog):
         desc_lines.append(f"**Sanity**: {balances['sanity']}")
         desc_lines.append(f"**Health**: {balances['health']}/{balances['health_maximum']}")
         desc_lines.append(f"**Magic**: {balances['magic']}/{balances['magic_maximum']}")
+        desc_lines.append(f"**Talents**: {', '.join(char_data['talents'])}")
         if "Psychic Power" in char_data['talents'] and char_data['psychic_power']:
             desc_lines.append(f"**Psychic Power**: {char_data['psychic_power']}")
 
