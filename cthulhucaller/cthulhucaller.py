@@ -611,13 +611,14 @@ class CthulhuCaller(commands.Cog):
             check_name = processed_query['query'].lower()
             dc, skill = self.find_skill(check_name, char_data, balances)
 
+            talent_bonus = self._get_talent_bonus(char_data['talents'], skill)
+            if talent_bonus:
+                processed_query['bonus'].append("1")
+
         if dc is None:
             await ctx.send(f"Could not understand `{check_name}`.")
             return
 
-        talent_bonus = self._get_talent_bonus(char_data['talents'], skill)
-        if talent_bonus:
-            processed_query['bonus'].append("1")
         bonus_str = self._get_rollable_arg(processed_query['bonus'])
         penalty_str = self._get_rollable_arg(processed_query['penalty'])
         phrase_str = "\n".join(processed_query['phrase'])
