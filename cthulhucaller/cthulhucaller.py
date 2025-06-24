@@ -757,12 +757,22 @@ class CthulhuCaller(commands.Cog):
         return " + ".join(rollable_args)
 
     def perform_skill_roll(self, dc: int, bonus_str: str, penalty_str: str):
-        # tens is 0-indexed: 00 through 90
-        # ones is 1-indexed: 01 through 10
-        tens = d20.roll(self.make_tens_string(bonus_str, penalty_str))
-        ones = d20.roll("1d10")
-        roll_total = (tens.total * 10) + ones.total
-        roll_text = f"{str(tens)}, {str(ones)} -> `{roll_total}`"
+        bonus = d20.roll(bonus_str).total if bonus_str else 0
+        penalty = d20.roll(penalty_str).total if penalty_str else 0
+        net_dice = bonus - penalty
+
+        if net_dice == 0:
+            # no need to show extra dice, simplify to a d100
+            hundreds = d20.roll("1d100")
+            roll_total = hundreds.total
+            roll_text = str(hundreds)
+        else:
+            # tens is 0-indexed: 00 through 90
+            tens = d20.roll(self.make_tens_string(net_dice))
+            # ones is 1-indexed: 01 through 10
+            ones = d20.roll("1d10")
+            roll_total = (tens.total * 10) + ones.total
+            roll_text = f"{str(tens)}, {str(ones)} -> `{roll_total}`"
 
         to_success, to_hard, to_extreme, degree_of_success = \
             self._get_degree_of_success(dc, roll_total)
@@ -781,17 +791,11 @@ class CthulhuCaller(commands.Cog):
 
         return roll_text, degree_text, luck_text
 
-    def make_tens_string(self, bonus_str: str, penalty_str: str):
-        bonus = d20.roll(bonus_str).total if bonus_str else 0
-        penalty = d20.roll(penalty_str).total if penalty_str else 0
-        net_change = bonus - penalty
-
-        if net_change == 0:
-            return "1d10 - 1"
-        elif net_change > 0:
-            return f"{abs(net_change) + 1}d10kl1 - 1"
+    def make_tens_string(self, net_dice: int):
+        if net_dice > 0:
+            return f"{abs(net_dice) + 1}d10kl1 - 1"
         else:
-            return f"{abs(net_change) + 1}d10kh1 - 1"
+            return f"{abs(net_dice) + 1}d10kh1 - 1"
 
     def _get_degree_of_success(self, dc: int, roll_total: int):
         extreme_dc = math.floor(dc / 5)
