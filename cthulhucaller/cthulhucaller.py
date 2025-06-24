@@ -1060,3 +1060,33 @@ class CthulhuCaller(commands.Cog):
             output += f" ({op}{value_diff})"
 
             await ctx.send(output)
+
+    @commands.command(aliases=["downtime", "progress", "progression"])
+    async def improve(self, ctx, *, query):
+        """Roll for improvements to five skill DCs.
+        
+        Takes five space-separated integers as argument.
+        """
+        skills = query.split(" ")
+        if len(skills) < 5 or not all([sk.isnumeric() for sk in skills[:5]]):
+            await ctx.send("Could not read input as five space-separated integers.")
+            return
+
+        hundred_rolls = [d20.roll("1d100") for i in range(5)]
+        improvements = [d20.roll("1d10") if hundred_rolls[i].total > int(skills[i]) else None \
+            for i in range(5)]
+
+        embed = await self._get_base_embed(ctx)
+        embed.title = "Skill Improvement rolls!"
+        for i in range(5):
+            field_text = f"{skills[i]}"
+            field_text += "" if improvements[i] is None else \
+                f" -> **{int(skills[i]) + improvements[i].total}**"
+
+            field_text += f"\n{str(hundred_rolls[i])}, "
+            field_text += "failure." if improvements[i] is None else \
+                f"success: {str(improvements[i])}"
+
+            embed.add_field(name=f"Skill {i + 1}", value=field_text, inline=False)
+        
+        await ctx.send(embed=embed)
