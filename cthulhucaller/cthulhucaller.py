@@ -412,8 +412,8 @@ class CthulhuCaller(commands.Cog):
             'sanity': ch_pow,
             'magic': math.floor(ch_pow / 5),
             'magic_maximum': math.floor(ch_pow / 5),
-            'health': math.floor((ch_con + ch_siz) / 10),
-            'health_maximum': math.floor((ch_con + ch_siz) / 10)
+            'health': math.floor((ch_con + ch_siz) / 5),
+            'health_maximum': math.floor((ch_con + ch_siz) / 5)
         }
 
         return balances
