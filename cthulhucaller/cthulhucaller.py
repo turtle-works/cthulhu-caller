@@ -170,7 +170,9 @@ class CthulhuCaller(commands.Cog):
     async def import_char(self, ctx, url: str):
         """Import from the Google Sheet template."""
         if not re.match(GSHEET_URL_TEMPLATE, url):
-            await ctx.send("Couldn't parse that as a link to a published-to-web Google Sheet.")
+            await ctx.send("Couldn't parse that as a link to an expected Google Sheet.\n" + \
+                "Please check that the sheet uses the importable template, and was published " + \
+                "as the first tab (Sheet) only and as a csv file.")
             return
 
         sheet_id = self._get_sheet_identifier_from_url(url)
@@ -233,7 +235,9 @@ class CthulhuCaller(commands.Cog):
             char_url = self.make_link_from_sheet_id(sheet_id)
         else:
             if not re.match(GSHEET_URL_TEMPLATE, url):
-                await ctx.send("Couldn't parse that as a link to a published-to-web Google Sheet.")
+                await ctx.send("Couldn't parse that as a link to an expected Google Sheet.\n" + \
+                    "Please check that the sheet uses the importable template, and was " + \
+                    "published as the first tab (Sheet) only and as a csv file.")
                 return
             sheet_id = self._get_sheet_identifier_from_url(url)
             char_url = url
