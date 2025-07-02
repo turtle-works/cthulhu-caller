@@ -123,6 +123,18 @@ ALL_SKILL_MINS = {
 
 UMBRELLA_SKILLS = ['Art and Craft', 'Language (Other)', 'Lore', 'Pilot', 'Science', 'Survival']
 
+# TODO: better way to do this too?
+CHARACTERISTIC_ALIASES = {
+    'appearance': "app",
+    'constitution': "con",
+    'dexterity': "dex",
+    'education': "edu",
+    'intelligence': "int",
+    'power': "pow",
+    'size': "siz",
+    'strength': "str"
+}
+
 DAMAGE_BONUS = 0
 BUILD = 1
 DAMAGE_BUILD_CHART = {
@@ -770,14 +782,6 @@ class CthulhuCaller(commands.Cog):
         return processed_flags
 
     def find_skill(self, check_name: str, char_data: dict, balances: dict):
-        for ch in char_data['characteristics'].keys():
-            if check_name in ch.lower():
-                return int(char_data['characteristics'][ch]), ch.upper()
-
-        for sk in char_data['skills'].keys():
-            if check_name in sk.lower():
-                return int(char_data['skills'][sk]), sk
-
         if check_name == "know":
             return int(char_data['characteristics']['edu']), "Know"
 
@@ -787,8 +791,24 @@ class CthulhuCaller(commands.Cog):
         if check_name == "luck":
             return int(balances['luck']), "Luck"
 
+        if check_name in "sanity":
+            return int(balances['sanity']), "Sanity"
+
         if check_name in "spellcasting":
             return int(char_data['characteristics']['pow']), "Spellcasting"
+
+        for ch in char_data['characteristics'].keys():
+            if check_name in ch.lower():
+                return int(char_data['characteristics'][ch]), ch.upper()
+
+        for alias in CHARACTERISTIC_ALIASES.keys():
+            if check_name in alias:
+                ch = CHARACTERISTIC_ALIASES[alias]
+                return int(char_data['characteristics'][ch]), ch.upper()
+
+        for sk in char_data['skills'].keys():
+            if check_name in sk.lower():
+                return int(char_data['skills'][sk]), sk
 
         for sk in UMBRELLA_SKILLS:
             if check_name in sk.lower():
