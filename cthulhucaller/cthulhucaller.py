@@ -623,7 +623,7 @@ class CthulhuCaller(commands.Cog):
 
         await ctx.send(f"Turned luck display **{label}** for all characters.")
 
-    @commands.command(aliases=["c", "roll", "r"])
+    @commands.command(aliases=["c"])
     async def check(self, ctx, *, query):
         """Make a d100 roll.
         
