@@ -697,7 +697,9 @@ class CthulhuCaller(commands.Cog):
             for i in range(d20.roll(repetition_str).total):
                 roll_text, degree_text, luck_text = \
                     self.perform_skill_roll(dc, bonus_str, penalty_str)
-                luck_text = luck_text if preferences['luck_display'] else ""
+                # show by default until toggled
+                luck_text = luck_text if not \
+                    ('luck_display' in preferences and not preferences['luck_display']) else ""
 
                 field_name = f"Roll {i + 1}"
                 embed.add_field(name=field_name, value=f"{degree_text}{luck_text}\n{roll_text}")
