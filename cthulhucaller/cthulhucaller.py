@@ -280,7 +280,7 @@ class CthulhuCaller(commands.Cog):
         if not is_valid:
             await ctx.send(f"Something was wrong with this sheet: {'; '.join(errors)}.\n" + \
                 "Please check that every cell is in the right place and filled in correctly. " + \
-                "Aborting import.")
+                "Aborting update.")
             return
 
         async with self.config.user(ctx.author).characters() as characters:
