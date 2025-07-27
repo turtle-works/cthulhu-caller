@@ -683,7 +683,7 @@ class CthulhuCaller(commands.Cog):
             description = f"{degree_text}\n{roll_text}"
 
             if phrase_str:
-                embed.description = f"{description}\n*> {phrase_str}*"
+                embed.description = f"{description}\n> *{phrase_str.strip()}*"
             else:
                 embed.description = description
 
@@ -692,7 +692,7 @@ class CthulhuCaller(commands.Cog):
                 embed.set_footer(text=luck_text)
         else:
             if phrase_str:
-                embed.description = f"> *{phrase_str}*"
+                embed.description = f"> *{phrase_str.strip()}*"
 
             for i in range(d20.roll(repetition_str).total):
                 roll_text, degree_text, luck_text = \
