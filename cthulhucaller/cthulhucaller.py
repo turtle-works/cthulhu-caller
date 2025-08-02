@@ -808,6 +808,9 @@ class CthulhuCaller(commands.Cog):
                 ch = CHARACTERISTIC_ALIASES[alias]
                 return int(char_data['characteristics'][ch]), ch.upper()
 
+        if check_name == "psych":
+            return int(char_data['skills']['Psychology']), "Psychology"
+
         for sk in char_data['skills'].keys():
             if check_name in sk.lower():
                 return int(char_data['skills'][sk]), sk
