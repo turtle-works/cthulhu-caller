@@ -1121,6 +1121,33 @@ class CthulhuCaller(commands.Cog):
 
             await ctx.send(output)
 
+    @game.command()
+    async def longrest(self, ctx):
+        """Set health and magic values to maximum."""
+        sheet_id = await self.config.user(ctx.author).active_char()
+        if sheet_id is None:
+            await ctx.send("No character is active. `import` a new character or switch to an " + \
+                "existing one with `character setactive`.")
+            return
+
+        data = await self.config.user(ctx.author).characters()
+        char_data = data[sheet_id]
+
+        async with self.config.user(ctx.author).csettings() as settings:
+            balances = settings[sheet_id]['balances']
+
+            health_diff = balances['health_maximum'] - balances['health']
+            health_op = "" if health_diff < 0 else "+"
+            balances['health'] = balances['health_maximum']
+
+            magic_diff = balances['magic_maximum'] - balances['magic']
+            magic_op = "" if magic_diff < 0 else "+"
+            balances['magic'] = balances['magic_maximum']
+
+            output = f"Health: {balances['health']} ({health_op}{health_diff})\n" + \
+                f"Magic: {balances['magic']} ({magic_op}{magic_diff})"
+            await ctx.send(output)
+
     @commands.command(aliases=["downtime", "progress", "progression"])
     async def improve(self, ctx, *, query):
         """Roll for improvements to five skill DCs.
