@@ -666,7 +666,8 @@ class CthulhuCaller(commands.Cog):
         phrase_str = "\n".join(processed_query['phrase'])
         repetition_str = self._get_single_rollable_arg(processed_query['rr'])
 
-        dc_str = f"({dc}/{math.floor(dc / 2)}/{math.floor(dc / 5)})"
+        dc_str = f"({dc}/{math.floor(dc / 2)}/{math.floor(dc / 5)})" if skill != "Sanity" \
+            else f"({dc})"
 
         if skill is not None:
             name = char_data['name']
@@ -679,7 +680,8 @@ class CthulhuCaller(commands.Cog):
         embed.title = title_text
 
         if not repetition_str or d20.roll(repetition_str).total == 1:
-            roll_text, degree_text, luck_text = self.perform_skill_roll(dc, bonus_str, penalty_str)
+            roll_text, degree_text, luck_text = \
+                self.perform_skill_roll(dc, bonus_str, penalty_str, skill)
             description = f"{degree_text}\n{roll_text}"
 
             if phrase_str:
@@ -696,7 +698,7 @@ class CthulhuCaller(commands.Cog):
 
             for i in range(d20.roll(repetition_str).total):
                 roll_text, degree_text, luck_text = \
-                    self.perform_skill_roll(dc, bonus_str, penalty_str)
+                    self.perform_skill_roll(dc, bonus_str, penalty_str, skill)
                 # show by default until toggled
                 luck_text = luck_text if not \
                     ('luck_display' in preferences and not preferences['luck_display']) else ""
@@ -858,7 +860,13 @@ class CthulhuCaller(commands.Cog):
         else:
             return 0
 
-    def perform_skill_roll(self, dc: int, bonus_str: str, penalty_str: str):
+    def perform_skill_roll(self, dc: int, bonus_str: str, penalty_str: str, skill: str):
+        if skill == "Sanity":
+            return self._perform_skill_roll(dc, bonus_str, penalty_str, True)
+        else:
+            return self._perform_skill_roll(dc, bonus_str, penalty_str, False)
+
+    def _perform_skill_roll(self, dc: int, bonus_str: str, penalty_str: str, is_san: bool):
         bonus = d20.roll(bonus_str).total if bonus_str else 0
         penalty = d20.roll(penalty_str).total if penalty_str else 0
         net_dice = bonus - penalty
@@ -878,7 +886,11 @@ class CthulhuCaller(commands.Cog):
 
         to_success, to_hard, to_extreme, degree_of_success = \
             self._get_degree_of_success(dc, roll_total)
-        degree_text = f"{degree_of_success}"
+        if is_san:
+            # only pass or fail
+            degree_text = "**Success**" if "Success" in degree_of_success else "**Failure**"
+        else:
+            degree_text = f"{degree_of_success}"
 
         luck_strs = []
         if to_success is not None:
@@ -888,7 +900,7 @@ class CthulhuCaller(commands.Cog):
         if to_extreme is not None:
             luck_strs.append(f"{to_extreme} Luck to Extreme")
         luck_str = ", ".join(luck_strs)
-        luck_text = " (" + luck_str + ")" if luck_str else ""
+        luck_text = " (" + luck_str + ")" if (luck_str and not is_san) else ""
 
         return roll_text, degree_text, luck_text
 
