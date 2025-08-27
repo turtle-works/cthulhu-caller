@@ -629,6 +629,17 @@ class CthulhuCaller(commands.Cog):
         
         Takes a plain DC as argument, or a check name (to make the roll as the active character).
         """
+        await self._check(ctx, query, False)
+
+    @commands.command()
+    async def research(self, ctx, *, query):
+        """Make a d100 roll toward performing research.
+
+        Takes a plain DC as argument, or a check name (to make the roll as the active character).
+        """
+        await self._check(ctx, query, True)
+    
+    async def _check(self, ctx, query, is_research: bool):
         processed_query = self.process_query(query)
 
         dc = None
@@ -668,13 +679,14 @@ class CthulhuCaller(commands.Cog):
 
         dc_str = f"({dc}/{math.floor(dc / 2)}/{math.floor(dc / 5)})" if skill != "Sanity" \
             else f"({dc})"
+        research_str = " to research" if is_research else ""
 
         if skill is not None:
             name = char_data['name']
             article = "an" if skill.lower()[0] in ["a", "e", "i", "o", "u"] else "a"
-            title_text = f"{name} makes {article} {skill} {dc_str} roll!"
+            title_text = f"{name} makes {article} {skill} {dc_str} roll{research_str}!"
         else:
-            title_text = f"DC {dc_str} roll!"
+            title_text = f"DC {dc_str} roll{research_str}!"
 
         embed = await self._get_base_embed(ctx)
         embed.title = title_text
@@ -682,29 +694,49 @@ class CthulhuCaller(commands.Cog):
         if not repetition_str or d20.roll(repetition_str).total == 1:
             roll_text, degree_text, luck_text = \
                 self.perform_skill_roll(dc, bonus_str, penalty_str, skill)
-            description = f"{degree_text}\n{roll_text}"
 
+            rp = self._get_research_points(degree_text)
+            plural = "s" if rp > 1 else ""
+            research_text = f" (**{rp}** research point{plural})" if is_research and rp > 0 else ""
+
+            description = f"{degree_text}{research_text}\n{roll_text}"
             if phrase_str:
-                embed.description = f"{description}\n> *{phrase_str.strip()}*"
-            else:
-                embed.description = description
+                description = f"{description}\n> *{phrase_str.strip()}*"
+            embed.description = description
 
             # show by default until toggled
-            if not ('luck_display' in preferences and not preferences['luck_display']):
+            if not ('luck_display' in preferences and not preferences['luck_display']) and \
+                not is_research:
                 embed.set_footer(text=luck_text)
         else:
-            if phrase_str:
-                embed.description = f"> *{phrase_str.strip()}*"
-
+            rp = 0
             for i in range(d20.roll(repetition_str).total):
                 roll_text, degree_text, luck_text = \
                     self.perform_skill_roll(dc, bonus_str, penalty_str, skill)
+                curr_rp = self._get_research_points(degree_text)
+                rp += curr_rp
+
+                plural = "s" if curr_rp > 1 else ""
+                research_text = f" (**{curr_rp}** research point{plural})" \
+                    if is_research and curr_rp > 0 else ""
+
                 # show by default until toggled
-                luck_text = luck_text if not \
+                luck_text = luck_text if not is_research and not \
                     ('luck_display' in preferences and not preferences['luck_display']) else ""
 
                 field_name = f"Roll {i + 1}"
-                embed.add_field(name=field_name, value=f"{degree_text}{luck_text}\n{roll_text}")
+                embed.add_field(name=field_name, value=f"{degree_text}{luck_text}" + \
+                    f"{research_text}\n{roll_text}")
+
+            description = f"> *{phrase_str.strip()}*"
+            plural = "s" if rp > 1 else ""
+            if phrase_str and (is_research and rp > 0):
+                embed.description = f"**{rp}** total research point{plural}!" + \
+                    f"\n> *{phrase_str.strip()}*"
+            elif phrase_str:
+                embed.description = f"> *{phrase_str.strip()}*"
+            elif is_research and rp > 0:
+                embed.description = f"**{rp}** total research point{plural}!"
 
         await ctx.send(embed=embed)
 
@@ -928,6 +960,18 @@ class CthulhuCaller(commands.Cog):
             return None, None, None, "**Fumble** (if success requires a result below 50)"
         else:
             return roll_total - dc, roll_total - hard_dc, roll_total - extreme_dc, "**Failure**"
+
+    def _get_research_points(self, degree: str):
+        if "Critical Success" in degree:
+            return 6
+        elif "Extreme Success" in degree:
+            return 4
+        elif "Hard Success" in degree:
+            return 2
+        elif "Regular Success" in degree or "Success" in degree:
+            return 1
+        else:
+            return 0
 
     @commands.command()
     async def sheet(self, ctx):
