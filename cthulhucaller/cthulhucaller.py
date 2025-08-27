@@ -1049,7 +1049,7 @@ class CthulhuCaller(commands.Cog):
         """
         await self.modify_balance(ctx, amount, "health")
 
-    @game.command()
+    @game.command(aliases=["mp"])
     async def magic(self, ctx, *, amount: str=""):
         """Update the active character's magic points.
         
