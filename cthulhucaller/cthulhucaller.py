@@ -653,8 +653,8 @@ class CthulhuCaller(commands.Cog):
         else:
             sheet_id = await self.config.user(ctx.author).active_char()
             if sheet_id is None:
-                await ctx.send("No character is active. `import` a new character or switch to an " + \
-                    "existing one with `character setactive`.")
+                await ctx.send("No character is active. `import` a new character or switch to " + \
+                    "an existing one with `character setactive`.")
                 return
 
             char_data = data[sheet_id]
